@@ -10,13 +10,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class PointService {
+
     private final GetUserPointBean getUserPointBean;
     private final GetUserPointHistoryBean getUserPointHistoryBean;
     private final ChargeUserPointBean chargeUserPointBean;
     private final UseUserPointBean useUserPointBean;
+
+    private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
+
+    private Object getUserLock(long userId) {
+        return userLocks.computeIfAbsent(userId, k -> new Object());
+    }
 
     @Autowired
     public PointService(GetUserPointBean getUserPointBean, GetUserPointHistoryBean getUserPointHistoryBean, ChargeUserPointBean chargeUserPointBean, UseUserPointBean useUserPointBean) {
@@ -38,11 +47,15 @@ public class PointService {
 
     // 특정 유저의 포인트 충전
     public UserPoint chargeUserPoint(long id, long amount) {
-        return chargeUserPointBean.exec(id, amount);
+        synchronized (getUserLock(id)) {
+            return chargeUserPointBean.exec(id, amount);
+        }
     }
 
     // 특정 유저의 포인트를 사용
     public UserPoint useUserPoint(long id, long amount) {
-        return useUserPointBean.exec(id, amount);
+        synchronized (getUserLock(id)) {
+            return useUserPointBean.exec(id, amount);
+        }
     }
 }
